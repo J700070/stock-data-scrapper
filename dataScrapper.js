@@ -1,8 +1,9 @@
-const puppeteer = require('puppeteer');
+import puppeteer from 'puppeteer';
 
-export const fetchMorningstar = (async () => {
 
-    let stockUrl = 'https://financials.morningstar.com/ratios/r.html?t=FB'
+export async function fetchMorningstar(stock) {
+
+    let stockUrl = 'https://financials.morningstar.com/ratios/r.html?t=' + stock;
 
     let browser = await puppeteer.launch();
     let page = await browser.newPage();
@@ -12,8 +13,8 @@ export const fetchMorningstar = (async () => {
 
     let data = await page.evaluate(() => {
 
+        let ticker = document.querySelector('div[class="r_title"] > span[class="gry"]').innerText.substring(1);
         let name = document.querySelector('div[class="r_title"] > h1').innerText;
-        let ticker = document.querySelector('div[class="r_title"] > span[class="gry"]').innerText;
         let revenue = [];
         let operatingIncome = [];
         let netIncome = [];
@@ -59,17 +60,24 @@ export const fetchMorningstar = (async () => {
             netMargin[i] = netIncome[i] / shares[i];
             roe[i] = parseFloat(document.querySelector(statementROE).innerText.replace(",", ""));
             roic[i] = parseFloat(document.querySelector(statementROIC).innerText.replace(",", ""));
-
-            if (i > 0) {
-                shareGrowth[i] = shares[i] / shares[i - 1] - 1;
-                revenueGrowth[i] = revenue[i] / revenue[i - 1] - 1;
-                operatingIncomeGrowth[i] = operatingIncome[i] / operatingIncome[i - 1] - 1;
-                netIncomeGrowth[i] = netIncome[i] / netIncome[i - 1] - 1;
-                epsGrowth[i] = eps[i] / eps[i - 1] - 1;
+            if (i == 0) {
+                shareGrowth[i] = 999;
+                revenueGrowth[i] = 999;
+                operatingIncomeGrowth[i] = 999;
+                netIncomeGrowth[i] = 999;
+                epsGrowth[i] = 999;
+            } else {
+                shareGrowth[i] = (shares[i] / shares[i - 1] - 1) * 100;
+                revenueGrowth[i] = (revenue[i] / revenue[i - 1] - 1) * 100;
+                operatingIncomeGrowth[i] = (operatingIncome[i] / operatingIncome[i - 1] - 1) * 100;
+                netIncomeGrowth[i] = (netIncome[i] / netIncome[i - 1] - 1) * 100;
+                epsGrowth[i] = (eps[i] / eps[i - 1] - 1) * 100;
             }
+
+
         }
 
-        return stock = {
+        return {
             name, ticker, revenue, operatingIncome, netIncome, shares, eps, fcf, fcfPerShare, operatingMargin, netMargin, roe, roic, shareGrowth, revenueGrowth, operatingIncomeGrowth, netIncomeGrowth, epsGrowth
         };
 
@@ -77,6 +85,33 @@ export const fetchMorningstar = (async () => {
 
     console.log(data);
 
+    await browser.close();
+
+    return data;
+};
+
+
+export async function fetchStockTickerList() {
+
+    let stockUrl = 'https://stockanalysis.com/stocks/';
+
+    let browser = await puppeteer.launch();
+    let page = await browser.newPage();
+    await page.goto(stockUrl, { waitUntil: 'networkidle2' });
+
+    let data = await page.evaluate(() => {
+        let stockList = [];
+        let j = 0;
+        for (let i = 0; i < document.querySelectorAll('table > tbody > tr > td').length / 4; i += 4) {
+            stockList[j++] = document.querySelectorAll('table > tbody > tr > td')[i].innerText;
+        }
+
+        return stockList;
+    })
+
+    console.log(data);
 
     await browser.close();
-})();
+
+    return data;
+};
